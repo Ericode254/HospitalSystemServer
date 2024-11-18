@@ -1,1 +1,5 @@
-from app.routes.auth import bp as auth
+from .auth_routes import auth_bp
+
+def init_routes(app):
+    app.register_blueprint(auth_bp)
+

@@ -1,9 +1,15 @@
-from app.utils import db
+from app.utils import db  # Import db from your utils (or wherever it's defined)
+from sqlalchemy import Column, String
+
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String(50), nullable=False)
-    last_name = db.Column(db.String(50), nullable=False)
-    user_name = db.Column(db.String(50), nullable=False)
-    phone_number = db.Column(db.String(15), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(128), nullable=False)
+    id = Column(db.Integer, primary_key=True)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    username = Column(String(100), nullable=False, unique=True)
+    phone_number = Column(String(15), nullable=False, unique=True)
+    password = Column(String(200), nullable=False)
+    role = db.Column(db.String(50), nullable=False, default="user")
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
