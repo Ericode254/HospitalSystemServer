@@ -10,6 +10,8 @@ from sqlalchemy.exc import IntegrityError
 from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
 from app.utils import mail
+from app.stroke_model import predict_stroke_risk
+from app.utils import mongo
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -62,6 +64,8 @@ def role_required(*roles):
         return wrapper
     return decorator
 
+
+# the route responsible for registering users
 @auth_bp.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()  # Get the data sent from the frontend (form data)
@@ -109,6 +113,7 @@ def register_user():
         return jsonify({"error": "Error registering user", "details": str(e)}), 500
 
 
+# the route responsible for signing in users
 @auth_bp.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -138,6 +143,7 @@ def login_user():
     return response
 
 
+# route used for signing out users
 @auth_bp.route('/logout', methods=['GET'])
 def logout():
    response = make_response(jsonify({"message": "Logout successful"}))
@@ -216,3 +222,48 @@ def reset_password(token):
     db.session.commit()
 
     return jsonify({"message": "Your password has been reset successfully!"}), 200
+
+
+# Define the /predict route
+@auth_bp.route('/predict', methods=['POST'])
+def predict():
+    try:
+        # Get data from the frontend
+        data = request.get_json()
+
+        # Run the stroke prediction model
+        stroke_risk, prediction = predict_stroke_risk(data)
+
+        # Create a new record to save to MongoDB
+        medical_record = {
+            'gender': data['gender'],
+            'age': data['age'],
+            'hypertension': data['hypertension'],
+            'ever_married': data['ever_married'],
+            'work_type': data['work_type'],
+            'Residence_type': data['Residence_type'],
+            'avg_glucose_level': data['avg_glucose_level'],
+            'bmi': data['bmi'],
+            'smoking_status': data['smoking_status'],
+            # 'stroke': data['stroke'],
+            'stroke_risk': stroke_risk,
+            'prediction': prediction
+        }
+
+        db = mongo.db
+        if 'medical_records' not in db.list_collection_names():
+            db.create_collection('medical_records')
+
+        # Save the data to MongoDB in the 'medical_records' collection
+        mongo.db.medical_records.insert_one(medical_record)
+
+        # Return the prediction result to the frontend
+        return jsonify({
+            'stroke_risk': stroke_risk,
+            'prediction': prediction
+        }), 200
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({'error': 'Something went wrong!'}), 500
+

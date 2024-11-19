@@ -14,6 +14,9 @@ class Config:
     # Password reset token settings
     PASSWORD_RESET_SALT = os.getenv("PASSWORD_RESET_SALT", "password-reset-salt")
 
+    # mongo uri
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///default.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False  # Disable Flask-SQLAlchemy modification tracking
