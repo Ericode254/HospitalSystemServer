@@ -6,6 +6,7 @@ class User(db.Model):
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     username = Column(String(100), nullable=False, unique=True)
+    email = Column(String(100), nullable=False, unique=True)
     phone_number = Column(String(15), nullable=False, unique=True)
     password = Column(String(200), nullable=False)
     role = db.Column(db.String(50), nullable=False, default="user")

@@ -7,8 +7,14 @@ from functools import wraps
 import os
 from app.utils import db
 from sqlalchemy.exc import IntegrityError
+from itsdangerous import URLSafeTimedSerializer
+from flask_mail import Message
+from app.utils import mail
 
 auth_bp = Blueprint('auth', __name__)
+
+# Initialize the serializer with the secret key
+s = URLSafeTimedSerializer(os.getenv("SECRET_KEY", "testing"))
 
 # Secret key for JWT encoding/decoding
 SECRET_KEY = os.getenv("SECRET_KEY", "testing") 
@@ -65,14 +71,15 @@ def register_user():
     last_name = data.get('lastName')
     phone_number = data.get('phoneNumber')
     username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
 
     # Check if required fields are provided
-    if not all([first_name, last_name, phone_number, username, password]):
+    if not all([first_name, last_name, email, phone_number, username, password]):
         return jsonify({"error": "All fields are required!"}), 400
 
     # Validate if the username or phone number is already taken (if necessary)
-    existing_user = User.query.filter((User.username == username) | (User.phone_number == phone_number)).first()
+    existing_user = User.query.filter((User.username == username) | (User.phone_number == phone_number) | (User.email == email)).first()
     if existing_user:
         return jsonify({"error": "Username or phone number already exists!"}), 400
 
@@ -83,6 +90,7 @@ def register_user():
     new_user = User(
         first_name=first_name,
         last_name=last_name,
+        email=email,
         phone_number=phone_number,
         username=username,
         password=hashed_password
@@ -99,6 +107,7 @@ def register_user():
     except Exception as e:
         db.session.rollback()  # Rollback in case of other errors
         return jsonify({"error": "Error registering user", "details": str(e)}), 500
+
 
 @auth_bp.route('/login', methods=['POST'])
 def login_user():
@@ -128,16 +137,19 @@ def login_user():
     )  # HTTPOnly cookie for security
     return response
 
+
 @auth_bp.route('/logout', methods=['GET'])
 def logout():
    response = make_response(jsonify({"message": "Logout successful"}))
    response.set_cookie('token', '', expires=0, httponly=True)  # Clear JWT cookie
    return response
 
+
 @token_required
 @role_required('admin')
 def admin_only_resource():
     return jsonify({"message": f"Welcome, {request.current_user.username}!"}), 200
+
 
 @auth_bp.route('/dashboard', methods=['GET'])
 @token_required
@@ -145,11 +157,13 @@ def admin_only_resource():
 def dashboard():
     return jsonify({"message": "Welcome to the dashboard!"}), 200
 
+
 @auth_bp.route('/home', methods=['GET'])
 @token_required
 @role_required('user')
 def home():
     return jsonify("Welcome to the home page!"), 200
+
 
 @auth_bp.route('/contact', methods=['GET'])
 @token_required
@@ -157,3 +171,48 @@ def home():
 def Contact():
     return jsonify("Welcome to the contact page!"), 200
 
+
+@auth_bp.route('/forgotpassword', methods=['POST'])
+def forgot_password():
+    email = request.get_json().get('email')
+    if not email:
+        return jsonify({"error": "Email is required!"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        # Generate a password reset token
+        token = s.dumps(user.email, salt=os.getenv("PASSWORD_RESET_SALT"))
+        reset_url = f"http://localhost:5173/resetpassword/{token}"
+
+        # Send email with the reset URL (you need to configure your SMTP settings)
+        msg = Message("Password Reset Request", sender=os.getenv("MAIL_USERNAME"), recipients=[email])
+        msg.body = f"Click the following link to reset your password: {reset_url}"
+        mail.send(msg)
+
+        return jsonify({"message": "Password reset link has been sent to your email."}), 200
+    else:
+        return jsonify({"error": "Email not found!"}), 404
+
+
+@auth_bp.route('/resetpassword/<token>', methods=['POST'])
+def reset_password(token):
+    try:
+        email = s.loads(token, salt=os.getenv("PASSWORD_RESET_SALT"), max_age=3600)  # Token expires after 1 hour
+    except Exception as e:
+        return jsonify({"error": "The reset link is invalid or has expired."}), 400
+
+    data = request.get_json()
+    new_password = data.get('newPassword')
+    if not new_password:
+        return jsonify({"error": "New password is required!"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found!"}), 404
+
+    # Hash the new password and update in the database
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"message": "Your password has been reset successfully!"}), 200
