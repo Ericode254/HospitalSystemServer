@@ -1,6 +1,7 @@
 import joblib
 import pandas as pd
 import os
+import numpy as np
 
 # Load the pre-trained model and the label encodings
 def load_model():
@@ -46,7 +47,13 @@ def preprocess_input(data, gender_map, ever_married_map, work_type_map, residenc
     # Check for any unmapped values (resulting in NaN)
     if input_data.isnull().values.any():
         unmapped_columns = input_data.columns[input_data.isnull().any()].tolist()
-        raise ValueError(f"Some categorical variables have invalid values. Unmapped columns: {unmapped_columns}")
+        invalid_values = {}
+        for column in unmapped_columns:
+            invalid_values[column] = data[column]
+        raise ValueError(f"Some categorical variables have invalid values. Unmapped columns: {unmapped_columns}. Invalid values: {invalid_values}")
+
+    # Convert any numpy.int64 or numpy.float64 to native Python types (int, float)
+    input_data = input_data.applymap(lambda x: x.item() if isinstance(x, (np.generic)) else x)
 
     return input_data
 
@@ -63,7 +70,6 @@ def predict_stroke_risk(data):
 
     # Ensure input features match the model's training features
     expected_features = model.feature_names_in_  # This contains the features the model was trained on
-    print(expected_features)
     if not all(feature in processed_data.columns for feature in expected_features):
         missing_from_input = [feature for feature in expected_features if feature not in processed_data.columns]
         raise ValueError(f"Input data does not match the model's expected features. Missing: {missing_from_input}")
@@ -74,5 +80,12 @@ def predict_stroke_risk(data):
     # Interpret prediction: 1 means high risk, 0 means low risk
     stroke_risk = "High" if prediction[0] == 1 else "Low"
 
-    return stroke_risk, prediction[0]
+    # Convert numpy types to native types before returning
+    result = {
+        'stroke_risk': stroke_risk,
+        'prediction': int(prediction[0])  # Convert prediction to int, if it's numpy.int64
+    }
+    print(result)
+
+    return result
 

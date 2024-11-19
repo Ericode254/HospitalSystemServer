@@ -4,7 +4,6 @@ from app.routes import init_routes
 from app.config import Config
 from flask_cors import CORS
 from app.utils import mail
-from app.utils import mongo
 
 def create_app():
     app = Flask(__name__)
@@ -20,9 +19,6 @@ def create_app():
 
     # Initialize Flask-Mail
     mail.init_app(app)
-
-    # Initialize mongo
-    mongo.init_app(app)
 
     # Register your blueprints (routes)
     init_routes(app)

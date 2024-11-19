@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, make_response
+from sqlalchemy.util import methods_equivalent
 from werkzeug.security import check_password_hash, generate_password_hash
 import jwt
 import datetime
@@ -11,7 +12,8 @@ from itsdangerous import URLSafeTimedSerializer
 from flask_mail import Message
 from app.utils import mail
 from app.stroke_model import predict_stroke_risk
-from app.utils import mongo
+from app.models import MedicalRecord
+import numpy as np
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -139,7 +141,7 @@ def login_user():
     response = make_response(jsonify({"message": "Login successful!"}))
     response.set_cookie(
         'token', token, secure=True, samesite="None", path="/"
-    )  # HTTPOnly cookie for security
+    )  
     return response
 
 
@@ -224,38 +226,58 @@ def reset_password(token):
     return jsonify({"message": "Your password has been reset successfully!"}), 200
 
 
-# Define the /predict route
 @auth_bp.route('/predict', methods=['POST'])
 def predict():
     try:
         # Get data from the frontend
         data = request.get_json()
 
-        # Run the stroke prediction model
-        stroke_risk, prediction = predict_stroke_risk(data)
+        # Validate smoking_status and map to correct values
+        # smoking_status_map = {
+        #     "never smoked": "Never",
+        #     "formerly smoked": "Formerly",
+        #     "smokes": "Current",
+        # }
+        #
+        # if data.get('smoking_status') not in smoking_status_map:
+        #     return jsonify({'error': 'Invalid smoking status selected'}), 400
+        #
+        # # Update smoking_status with mapped value
+        # data['smoking_status'] = smoking_status_map[data['smoking_status']]
+        #
+        # Run the stroke prediction model (you can define this function)
 
-        # Create a new record to save to MongoDB
-        medical_record = {
-            'gender': data['gender'],
-            'age': data['age'],
-            'hypertension': data['hypertension'],
-            'ever_married': data['ever_married'],
-            'work_type': data['work_type'],
-            'Residence_type': data['Residence_type'],
-            'avg_glucose_level': data['avg_glucose_level'],
-            'bmi': data['bmi'],
-            'smoking_status': data['smoking_status'],
-            # 'stroke': data['stroke'],
-            'stroke_risk': stroke_risk,
-            'prediction': prediction
-        }
+        
+ # Ensure that all data is serializable by converting numpy types to native Python types
+        for key in data:
+            if isinstance(data[key], np.generic):  # Check if the value is a numpy type
+                data[key] = data[key].item()  # Convert to native Python type
 
-        db = mongo.db
-        if 'medical_records' not in db.list_collection_names():
-            db.create_collection('medical_records')
+        preds = []
+        for value in predict_stroke_risk(data).values():
+            preds.append(value)
+        
+        stroke_risk = preds[0]
+        prediction = preds[1]
 
-        # Save the data to MongoDB in the 'medical_records' collection
-        mongo.db.medical_records.insert_one(medical_record)
+        # Store the data in SQLite using SQLAlchemy
+        new_record = MedicalRecord(
+            gender=data['gender'],
+            age=data['age'],
+            hypertension=data['hypertension'],
+            ever_married=data['ever_married'],
+            work_type=data['work_type'],
+            Residence_type=data['Residence_type'],
+            avg_glucose_level=data['avg_glucose_level'],
+            bmi=data['bmi'],
+            smoking_status=data['smoking_status'],
+            stroke_risk=stroke_risk,
+            prediction=prediction
+        )
+
+        # Add the new record to the session and commit to the database
+        db.session.add(new_record)
+        db.session.commit()
 
         # Return the prediction result to the frontend
         return jsonify({
