@@ -8,5 +8,4 @@
                 - [ ]  Go to your google account
                 - [ ]  Search for app/application password 
                 - [ ]  Create a new app with your desired name and copy the password generated.
--  Create a mongo db atlas account and create a project then copy the mongodb uri and put it in the env file.
 -  Rename the env.txt file to a .env file.
