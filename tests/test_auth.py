@@ -1,9 +1,7 @@
 import pytest
-from flask import Flask
 from app import create_app, db
 from app.models import User
 from flask_testing import TestCase
-import json
 
 class AuthTestCase(TestCase):
     def create_app(self):
