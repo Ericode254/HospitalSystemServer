@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, make_response
-from sqlalchemy.util import methods_equivalent
 from werkzeug.security import check_password_hash, generate_password_hash
 import jwt
 import datetime
