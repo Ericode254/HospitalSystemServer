@@ -1,6 +1,7 @@
 # Installation and running of the application
 -  To make sure that all the project requirements are met run the below command `pip install -r requirements.txt`.
 -  To run the whole application run the command `python run.py` while in the project directory to run the whole project.
+-  To run tests to ensure that everything is working correctly just type `pytest` in your project directory
 
 ## What to do before running the application
 -  Check the env.txt file, it will contain fields that are to be field before running the application.

@@ -81,12 +81,12 @@ def register_user():
 
     # Check if required fields are provided
     if not all([first_name, last_name, email, phone_number, username, password]):
-        return jsonify({"error": "All fields are required!"}), 400
+        return jsonify({"message": "All fields are required!"}), 400
 
     # Validate if the username or phone number is already taken (if necessary)
     existing_user = User.query.filter((User.username == username) | (User.phone_number == phone_number) | (User.email == email)).first()
     if existing_user:
-        return jsonify({"error": "Username or phone number already exists!"}), 400
+        return jsonify({"message": "Username or phone number already exists!"}), 400
 
     # Hash the password before storing it
     hashed_password = generate_password_hash(password)
