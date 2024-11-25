@@ -33,8 +33,8 @@ def test_all_users(test_client):
 
 # def test_update_user_success(test_client):
 #     """Test the PUT /users/<user_id> route for successful update."""
-#     user_id = 1
-#     response = test_client.put(`/users/${user_id}`, json={'role': 'admin'})
+#     user_id = User.query.all()[0].id
+#     response = test_client.put(f'/users/{user_id}', json={'role': 'admin'})
 #     assert response.status_code == 200
 #     assert response.json['message'] == "User updated successfully"
 #
